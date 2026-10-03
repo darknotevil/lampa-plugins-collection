@@ -13,12 +13,10 @@
 
     // Plugins shipped by this repo (this loader itself is intentionally excluded).
     var FILES = [
-        'etor',            // enables the torrents button (sets torrents_use)
         'torrents.js',     // custom torrent screen (quality+seeders sort, UX fixes)
-        'torr_styles.js',  // extra torrent text replacements / tracker colours
         'collections.js',  // collections section + card management
         'lme-slim.js',     // slim card buttons
-        'kinopoisk.js',    // "open in KinoPoisk" button
+        'kinopoisk-okko.js', // "KinoPoisk" / "Okko" app buttons
         'unblock.js'       // lift category restrictions
     ];
 
