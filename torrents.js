@@ -8,7 +8,8 @@
     //  - drop the left description panel on the torrent screen;
     //  - fix the empty-result dead-end (keep filter/back reachable, add reset);
     //  - hide the "no watch history" placeholder when there is no history;
-    //  - colour highlighting (seeds/bitrate/tracker), zero-seeders in red, quality badge.
+    //  - colour highlighting (seeds/bitrate/tracker), zero-seeders in red, quality badge;
+    //  - quick-filter chips (quality, seasons) in the head + high-contrast focus in the filter menu.
     //
     // The whole sort/filter pipeline lives in a private closure of the engine component,
     // so the only way to change ordering globally (correct with pagination) is to replace
@@ -342,6 +343,8 @@
             var last;
             var last_filter;
             var initialized;
+            var quick = $('<div class="torrents-quick"></div>');
+            var quick_seasons_sig;
 
             var filter_items = {
                 quality: [Lang.translate('torrent_parser_any_one'), '4k', '1080p', '720p'],
@@ -469,6 +472,66 @@
                 filter.addButtonBack();
 
                 files.appendHead(filter.render());
+                files.appendHead(quick);
+            };
+
+            // EDIT E: one-press quality/season toggles in the head, synced with the filter menu.
+            var QUICK_QUALITY = ['4k', '1080p', '720p'];
+
+            this.renderQuick = function () {
+                var show_seasons = finded_seasons.length > 1 || !!object.movie.number_of_seasons;
+                var sig = show_seasons ? finded_seasons.join(',') : '';
+
+                if (sig !== quick_seasons_sig || !quick.children().length) {
+                    quick_seasons_sig = sig;
+                    quick.empty();
+
+                    var chip = function (type, value, label) {
+                        var el = $('<div class="simple-button selector torrents-quick__chip"></div>');
+
+                        el.text(label).attr('data-type', type).attr('data-value', value);
+                        el.on('hover:enter', function () { this.toggleQuick(type, value, el); }.bind(this));
+
+                        quick.append(el);
+                    }.bind(this);
+
+                    QUICK_QUALITY.forEach(function (q) { chip('quality', q, q == '4k' ? '4K' : q); });
+
+                    if (show_seasons && finded_seasons.length) {
+                        quick.append('<div class="torrents-quick__label">' + Lang.translate('torrent_parser_season') + '</div>');
+
+                        finded_seasons.forEach(function (s) { chip('season', s, s); });
+                    }
+                }
+
+                var data = this.getFilterData();
+
+                quick.find('.torrents-quick__chip').each(function () {
+                    var el = $(this);
+                    var active = Arrays.toArray(data[el.attr('data-type')]).indexOf(el.attr('data-value')) >= 0;
+
+                    el.toggleClass('active', active);
+                });
+            };
+
+            this.toggleQuick = function (type, value, el) {
+                var data = this.getFilterData();
+                var need = Arrays.toArray(data[type]).slice();
+                var pos  = need.indexOf(value);
+
+                if (pos >= 0) need.splice(pos, 1);
+                else need.push(value);
+
+                data[type] = need;
+
+                this.setFilterData(data);
+
+                // rebuild the menu so its checkboxes/subtitles match, then refilter the list
+                this.buildFilterd();
+                this.applyFilter();
+
+                Controller.collectionSet(scroll.render(), files.render(true));
+                Controller.collectionFocus(el[0], scroll.render(true));
             };
 
             // EDIT C: keep filter/back reachable on empty result; add a guaranteed exit + reset.
@@ -739,6 +802,8 @@
                 }
 
                 filter.chosen('filter', select);
+
+                this.renderQuick();
             };
 
             this.selectedSort = function () {
@@ -1320,7 +1385,20 @@
                 '.torrent-item__ffprobe .m-resolution.q-2K{background:#8e44ad;color:#fff}',
                 '.torrent-item__ffprobe .m-resolution.q-FHD{background:#2980b9;color:#fff}',
                 '.torrent-item__ffprobe .m-resolution.q-HD{background:#16a085;color:#fff}',
-                '.torrent-item__ffprobe .m-resolution.q-SD,.torrent-item__ffprobe .m-resolution.q-LD{background:#7f8c8d;color:#fff}'
+                '.torrent-item__ffprobe .m-resolution.q-SD,.torrent-item__ffprobe .m-resolution.q-LD{background:#7f8c8d;color:#fff}',
+                /* quick-filter chips under the head */
+                '.torrents-quick{display:flex;flex-wrap:wrap;align-items:center;width:100%;margin-top:0.8em}',
+                '.torrents-quick:empty{display:none}',
+                '.torrents-quick__label{font-size:1.1em;opacity:0.6;margin:0 0.6em 0 1em}',
+                '.torrents-quick__chip{margin-right:0.6em;background:rgba(255,255,255,0.08);color:#fff}',
+                '.torrents-quick__chip.active{background:#2980b9;color:#fff;font-weight:bold}',
+                '.torrents-quick__chip.focus{background:#fff;color:#000}',
+                '.torrents-quick__chip.active.focus{box-shadow:inset 0 0 0 0.25em #2980b9}',
+                /* header value pills: readable instead of white-on-grey */
+                '.torrents-noinfo .simple-button--filter > div{background:#2980b9;color:#fff}',
+                /* filter/sort menu: high-contrast focus (stock #353535 on #262829 is almost invisible) */
+                '.selectbox-item.focus{background-color:#fff !important;color:#000 !important}',
+                '.selectbox-item.focus .selectbox-item__checkbox{filter:invert(1)}'
             ].join('');
 
             var style = document.createElement('style');
